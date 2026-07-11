@@ -21,9 +21,17 @@ export function createScene(container, params) {
   let rocket = buildProceduralRocket(params.color);
   scene.add(rocket);
 
+  // The load is async; the scene may be disposed before it resolves. Guard both
+  // callbacks so a late load neither touches a torn-down scene nor leaks the GPU
+  // resources it just allocated.
+  let disposed = false;
   new GLTFLoader().load(
     import.meta.env.BASE_URL + 'rocket.glb',
     (gltf) => {
+      if (disposed) {
+        disposeObject3D(gltf.scene);
+        return;
+      }
       const model = gltf.scene;
       tint(model, params.color);
       fitToHeight(model, 2.4);
@@ -34,6 +42,7 @@ export function createScene(container, params) {
     },
     undefined,
     (err) => {
+      if (disposed) return;
       // Graceful degradation, but not silent — keep the procedural rocket and log why.
       console.warn('rocket.glb failed to load — using the procedural rocket', err);
     },
@@ -59,6 +68,7 @@ export function createScene(container, params) {
 
   return {
     dispose() {
+      disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
       disposeObject3D(rocket);
@@ -94,9 +104,19 @@ function disposeObject3D(obj) {
     if (node.isMesh) {
       node.geometry?.dispose();
       const mats = Array.isArray(node.material) ? node.material : [node.material];
-      for (const m of mats) m?.dispose();
+      for (const m of mats) disposeMaterial(m);
     }
   });
+}
+
+function disposeMaterial(material) {
+  if (!material) return;
+  // A material owns its textures (map, normalMap, roughnessMap, …); dispose them
+  // too, or the GPU handles leak. Walk its properties rather than naming each map.
+  for (const value of Object.values(material)) {
+    if (value?.isTexture) value.dispose();
+  }
+  material.dispose();
 }
 
 function buildProceduralRocket(color) {

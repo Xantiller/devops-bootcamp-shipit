@@ -26,7 +26,9 @@ test('exits 1 on malformed JSON', () => {
   assert.match(r.stderr, /not valid JSON/);
 });
 
-test('exits 1 when the file is missing', () => {
+test('exits 1 when the file is missing, surfacing the underlying cause', () => {
   const r = run(fixture('does-not-exist.json'));
   assert.equal(r.status, 1);
+  assert.match(r.stderr, /ABORT/);
+  assert.match(r.stderr, /ENOENT/); // the OS error, not just "cannot read"
 });

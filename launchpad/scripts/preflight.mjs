@@ -9,16 +9,16 @@ const configPath = process.argv[2] || 'ship.config.json';
 let text;
 try {
   text = await readFile(configPath, 'utf8');
-} catch {
-  console.error(`ABORT — cannot read ${configPath}`);
+} catch (err) {
+  console.error(`ABORT — cannot read ${configPath}: ${err.message}`);
   process.exit(1);
 }
 
 let cfg;
 try {
   cfg = JSON.parse(text);
-} catch {
-  console.error(`ABORT — ${configPath} is not valid JSON`);
+} catch (err) {
+  console.error(`ABORT — ${configPath} is not valid JSON: ${err.message}`);
   process.exit(1);
 }
 
